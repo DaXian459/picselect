@@ -8,7 +8,7 @@ import { initKeys } from './keys.js'
 import { requestPersistence, idbClear, idbCount } from './idb.js'
 import { clearPreload } from './preloader.js'
 import { stats as thumbStats } from './thumb-service.js'
-import { developRaw, developUrl, isRaw, resetDevelopCache } from './raw-develop.js'
+import { developRaw, developUrl, isRaw, resetDevelopCache, warmup, stats as rawStats } from './raw-develop.js'
 
 const THUMB_STEPS = [132, 168, 208, 256, 300]
 const THEME_CYCLE = ['system', 'light', 'dark']
@@ -30,6 +30,10 @@ async function boot() {
   }
 
   requestPersistence()
+
+  // 空闲时把 libraw 的 wasm 编译掉，首张 RAW 能省近 200ms
+  const idle = window.requestIdleCallback || ((fn) => window.setTimeout(fn, 1200))
+  idle(() => warmup())
 
   initGrid()
   initViewer()
@@ -739,6 +743,7 @@ window.__picselect = {
   resetDevelopCache,
   openDir: (dir) => loadDir(dir),
   thumbStats,
+  rawStats,
   clearThumbCache: async () => {
     await idbClear()
     clearPreload()

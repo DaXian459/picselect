@@ -1,7 +1,7 @@
 import { state, metaOf } from '../state.js'
 import { preloadAround } from '../preloader.js'
 import { clamp, zoomLabel } from '../lib/format.js'
-import { developUrl, isRaw } from '../raw-develop.js'
+import { developUrl, isRaw, prefetchPixels } from '../raw-develop.js'
 import { peekThumbnail } from '../thumb-service.js'
 
 const MIN_SCALE = 0.15
@@ -101,6 +101,25 @@ export function refreshMeta() {
   renderMeta()
 }
 
+let prefetchTimer = 0
+
+/**
+ * 停留半秒后再预取相邻 RAW 的像素。快速连翻时定时器不断被重置，
+ * 不会为「一闪而过」的照片白解一遍 33MB。
+ */
+function scheduleNeighborPrefetch(index) {
+  window.clearTimeout(prefetchTimer)
+  prefetchTimer = window.setTimeout(() => {
+    const idle = window.requestIdleCallback || ((fn) => window.setTimeout(fn, 150))
+    idle(() => {
+      for (const delta of [1, -1]) {
+        const neighbor = state.filtered[index + delta]
+        if (neighbor) prefetchPixels(neighbor)
+      }
+    })
+  }, 500)
+}
+
 export function show(index) {
   const item = state.filtered[index]
   if (!item) return
@@ -113,6 +132,7 @@ export function show(index) {
   els.next.disabled = index >= state.filtered.length - 1
   renderMeta()
   resetZoom()
+  scheduleNeighborPrefetch(index)
 
   const target = activeLayer === layers.a ? layers.b : layers.a
   const other = activeLayer

@@ -278,6 +278,12 @@ async function testRawPipeline(evalJs) {
   check('解码无一失败', after.failed - before.failed === 0, `failed ${before.failed} → ${after.failed}`)
   check('瓦片全部出图', loaded >= samples.length, `${loaded}/${samples.length}`)
 
+  // 先确保这一张的像素已在缓存里（缩略图阶段解过，但 LRU 可能已淘汰），再测换尺寸的复用成本
+  await evalJs(`(async () => {
+    const item = window.__picselect.state.items.find((it) => window.__picselect.isRaw(it))
+    await window.__picselect.developRaw(item, { maxWidth: 880, quality: 0.82 })
+  })()`)
+
   // 真正解一张：断言尺寸、JPEG 头、耗时
   const t0 = Date.now()
   const decoded = JSON.parse(await evalJs(`(async () => {
@@ -299,6 +305,8 @@ async function testRawPipeline(evalJs) {
   check('输出是 JPEG（ffd8ff）', decoded.magic === 'ffd8ff', decoded.magic)
   check('输出声明 image/jpeg', decoded.type === 'image/jpeg', decoded.type)
   check('输出体积 > 20KB', decoded.bytes > 20 * 1024, `${decoded.bytes} bytes`)
+  // 缩略图阶段已解过同一张，这里应该只花「缩放 + 编码」的钱，而不是重新解 470ms
+  check('复用已解码像素（< 500ms）', ms < 500, `首次 ${ms}ms，完整解码约 670ms`)
   console.log(`    （${decoded.name} → ${decoded.width}×${decoded.height}，${(decoded.bytes / 1024).toFixed(0)}KB，耗时 ${ms}ms）`)
 
   // 相机内嵌预览是文件里现成的另一张 JPEG：体积、尺寸都应与解码结果不同
@@ -307,7 +315,7 @@ async function testRawPipeline(evalJs) {
   check('结果是重新解码而非内嵌预览', embeddedSize > 0 && Math.abs(embeddedSize - decoded.bytes) > 4096,
     `内嵌 ${(embeddedSize / 1024).toFixed(0)}KB vs 解码 ${(decoded.bytes / 1024).toFixed(0)}KB`)
 
-  // 缓存：同一张再解一次应命中 IndexedDB
+  // 缓存：同一张再取一次应命中（IDB 或像素缓存）
   const t1 = Date.now()
   const cachedUrl = await evalJs(`(async () => {
     const item = window.__picselect.state.items.find((it) => window.__picselect.isRaw(it))
@@ -315,7 +323,32 @@ async function testRawPipeline(evalJs) {
   })()`)
   const cacheMs = Date.now() - t1
   check('二次取图返回 blob URL', typeof cachedUrl === 'string' && cachedUrl.startsWith('blob:'), String(cachedUrl))
-  check('缓存命中快于首次解码', cacheMs < ms, `${cacheMs}ms vs 首次 ${ms}ms`)
+  check('二次取图 < 250ms', cacheMs < 250, `${cacheMs}ms`)
+
+  // 实例池：并行解 3 张应该比串行快（串行 3 张约 1.4s）
+  const poolMs = JSON.parse(await evalJs(`(async () => {
+    window.__picselect.resetDevelopCache()
+    const items = window.__picselect.state.items.filter((it) => window.__picselect.isRaw(it)).slice(0, 3)
+    const t = performance.now()
+    await Promise.all(items.map((it) => window.__picselect.developRaw(it, { maxWidth: 880, quality: 0.82 })))
+    return JSON.stringify({ ms: Math.round(performance.now() - t), stats: window.__picselect.rawStats() })
+  })()`))
+  check('实例池真的并行（3 张 < 串行耗时）', poolMs.ms < 1400, `${poolMs.ms}ms ${JSON.stringify(poolMs.stats)}`)
+  check('池内实例数 ≤ 上限', poolMs.stats.poolSize <= poolMs.stats.poolCap, JSON.stringify(poolMs.stats))
+  console.log(`    （3 张并行解码 ${poolMs.ms}ms，池 ${poolMs.stats.poolSize}/${poolMs.stats.poolCap}）`)
+
+  // 预取：停在第 4 张时，第 5 张的像素应已被低优先级解好，随后取大图只花缩放的钱
+  await evalJs('window.__picselect.viewer.show(3)')
+  await sleep(2800)
+  const prefetchMs = JSON.parse(await evalJs(`(async () => {
+    const items = window.__picselect.state.items.filter((it) => window.__picselect.isRaw(it))
+    const t = performance.now()
+    await window.__picselect.developRaw(items[4], { maxWidth: 2048 })
+    return JSON.stringify({ ms: Math.round(performance.now() - t), stats: window.__picselect.rawStats() })
+  })()`))
+  check('相邻照片已被预取（< 450ms）', prefetchMs.ms < 450,
+    `${prefetchMs.ms}ms ${JSON.stringify(prefetchMs.stats)}`)
+  console.log(`    （停留后取第 5 张大图 ${prefetchMs.ms}ms，未预取时约 670ms）`)
 }
 
 app.whenReady().then(() => {

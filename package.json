@@ -1,7 +1,7 @@
 {
   "name": "picselect",
   "productName": "PicSelect",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "PicSelect - 轻量快速的本地照片查看与标记工具",
   "main": "src/main/main.js",
   "private": true,
@@ -14,6 +14,7 @@
     "shot": "electron scripts/screenshot.js",
     "test": "node scripts/test-parsers.js && node scripts/test-export.js && node scripts/test-external.js",
     "test:ui": "electron scripts/test-ui.js",
+    "bench": "electron scripts/bench-raw.js",
     "pack": "node scripts/dist.js --dir",
     "dist": "node scripts/dist.js"
   },

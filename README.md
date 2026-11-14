@@ -140,9 +140,26 @@ npm run dist    # 出安装包 + 便携版（首次约 2 分钟，需下载 NSIS
 
 `LibRaw` 是编译成 WASM 的浏览器形态，依赖 Web Worker 和 `fetch`，所以只能跑在渲染进程——放在主进程会直接报 `self is not defined`。代价是解码在主线程旁边跑，收益是不用为它装任何原生模块，打包体积也只多 2MB 左右。
 
-解码是**单实例串行**的（libraw-wasm 内部状态不可重入），靠一个 Promise 队列排队。结果按 `版本|路径|mtime|目标宽` 缓存进 IndexedDB，再用一个 24 条的 objectURL LRU 兜住频繁来回翻页。
+### 为什么快：不是调参数，是别重复干活
 
-性能实测（索尼 A6700，33MB ARW）：半尺寸 3120×2084 约 670ms，缩略图（880 宽）再快一些；命中缓存后是毫秒级。所以查看器会**先贴缩略图垫底、解码完再替换**，翻页不会有空白等待。
+把「一张 33MB 的 ARW 花掉 600ms」拆开量过（`npm run bench -- --open raw`），结论有点反直觉：
+
+| 尝试 | 结果 | 说明 |
+| --- | --- | --- |
+| `userQual` 3 → 0（AHD → 线性） | 476ms → 456ms | 几乎没省。半尺寸下瓶颈是 unpack 解压，不是插值 |
+| 全尺寸 → 半尺寸 | 1973ms → 476ms | 真正的杠杆，已经用上了 |
+| 串行解 5 张 | 2875ms | 单实例不可重入，一个 worker 干到底 |
+| **3 实例并行解 5 张** | **1307ms** | 2.2 倍，实际用的是这条 |
+
+所以优化的重点全在「同一份数据别算第二遍」：
+
+1. **实例池**：`hardwareConcurrency - 2`，上限 3。LibRaw 单实例不可重入，池化才能吃多核。取 3 不取更多人，是因为再往上（4 个）实测没有更快——瓶颈已经变成内存带宽。
+2. **像素复用**：缩略图（880 宽）和查看器（2048 宽）是同一张图的同一份半尺寸像素，解一次、各自缩放。查看器首帧从 ~670ms 降到 **~100ms**。LRU 保留 4 张（每张 RGB 约 19MB），覆盖「刚翻过的那几张」。
+3. **原始字节缓存**：读一次 33MB 要 80ms，来回翻页不重复读盘。只留最近一张，上限 64MB——`open()` 会把 buffer transfer 给 worker，所以给出去的是副本。
+4. **wasm 预热**：首张比热态多约 190ms，启动后空闲时先把模块编译掉。
+5. **相邻预取**：查看器停留半秒后，以低优先级解前后各一张的像素（不编码、不写盘）。池的等待队列按优先级插队，用户正在等的那张永远排在预取前面。
+
+结果是：网格首次打开 5 张 RAW 约 1.6s（渐进出现，先解完的先显示），之后每翻一页约 100ms。
 
 解不出来的文件（异常容器、损坏文件）会被记下来，不再反复重试，并在缩略图与查看器里回退到老路径：IFD 定向抽取 → 全文件扫描 JPEG 标记 → 系统缩略图接口。这条兜底链完整保留在 `src/main/raw/`，也是 fixture 里那几个「假 RAW」能正常显示的原因。
 
@@ -172,7 +189,8 @@ npm run dist    # 出安装包 + 便携版（首次约 2 分钟，需下载 NSIS
 | 内容 | 位置 |
 | --- | --- |
 | 标记与偏好 | `%APPDATA%\PicSelect\library.json` |
-| RAW 解码缓存 | IndexedDB（渲染进程，键含路径/mtime/目标宽） |
+| RAW 解码结果 | IndexedDB（渲染进程，键含路径/mtime/目标宽） |
+| RAW 像素缓存 | 内存 LRU 4 张（每张约 19MB，缩略图与查看器共用） |
 | RAW 内嵌预览兜底缓存 | `%APPDATA%\PicSelect\cache\raw\<sha1>.jpg`（上限 500MB，自动清理最旧） |
 | 缩略图缓存 | IndexedDB（渲染进程，库名 `picselect`） |
 
@@ -216,8 +234,8 @@ src/main/            主进程
   raw/               RAW 内嵌预览兜底链（IFD → 全文件扫描 → 系统兜底）
 src/preload/         contextBridge 白名单
 src/renderer/        index.html、styles/、js/
-  js/raw-develop.js  LibRaw(WASM) 传感器解码，带缓存与串行队列
-scripts/             测试素材生成、解析器断言、UI 端到端测试、截图、CDP 探针
+  js/raw-develop.js  LibRaw(WASM) 传感器解码：实例池、像素复用、字节缓存、预热
+scripts/             测试素材、解析器断言、端到端测试、解码基准、截图、CDP 探针
 fixtures/            程序生成的测试图片（29 个）
 raw/                 放真实 RAW 样片的地方（不纳入版本控制）
 ```
@@ -237,7 +255,8 @@ Chromium 默认按 EXIF 的 `Orientation` 自动旋转（`image-orientation: fro
 ```bash
 npm run fixtures      # 生成 29 个测试素材（含 8 种方向、6 种 TIFF 编码、3 种 RAW 布局）
 npm test              # 解析器 33 项 + 导出 12 项 + 外部程序探测 8 项，纯 Node 运行
-npm run test:ui       # 端到端交互：41 项（含 IPC 导出、按钮渲染、持久化、缓存、RAW 解码）
+npm run test:ui       # 端到端交互：45 项（含 IPC 导出、按钮渲染、持久化、缓存、RAW 解码与实例池）
+npm run bench -- --open raw   # RAW 解码基准：参数对比 / 并行吞吐 / 真实管线
 npm run shot -- --scene grid --theme dark --out shots/grid.png
 ```
 
@@ -258,7 +277,7 @@ node scripts/peek-preview.js raw/DSC01839.ARW shots/embedded.jpg   # 抽相机�
 
 - **HEIC/HEIF 不支持**：Chromium 无 HEVC 解码能力，纯 JS 实现不划算，扫描时直接跳过并在状态栏提示。
 - **RAW 是中性解码**：显示的是传感器数据经 LibRaw 中性渲染的结果，没有相机机内风格（对比度、锐化、降噪），所以看起来会比相机直出的 JPEG「平」一些——这正是看 RAW 的意义。LibRaw 不认识的机型会回退到内嵌预览。
-- **RAW 首帧要等**：一张没缓存的 ARW 大图约 1~1.5 秒，期间先显示缩略图。缓存后会立刻出来。
+- **RAW 首帧要等**：一张没缓存的 ARW 首次解码约 0.5~0.7 秒，期间先显示缩略图；之后同图换尺寸约 100ms，回看过的图（LRU 4 张内）也是 100ms 级。
 - **CR3 是 ISO BMFF 容器**：不走 TIFF/IFD 路径，解码靠 LibRaw，兜底靠全文件扫描或系统缩略图。
 - **大尺寸 TIFF**：分块（Tiled）TIFF 暂不支持，会降级为系统缩略图；超过 64MB 的文件只读取头部提取 EXIF。
 - **单目录、非递归**：不做目录树，一次只浏览一个文件夹。需要批量操作请配合系统文件管理器。
