@@ -1,0 +1,113 @@
+/* ============ 响应式 ============ */
+
+/* 中等宽度：信息面板改为覆盖式抽屉 */
+@media (max-width: 1180px) {
+  #app.info-open #main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pane-info {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: var(--info-w);
+    z-index: 40;
+    box-shadow: var(--shadow-2);
+  }
+}
+
+/* 窄窗口：收紧工具栏 */
+@media (max-width: 1020px) {
+  .titlebar {
+    gap: 8px;
+    padding-left: 10px;
+  }
+
+  .searchbox {
+    flex: 1 1 auto;
+    max-width: 240px;
+  }
+
+  .btn-accent span {
+    display: none;
+  }
+
+  .btn-accent {
+    width: 30px;
+    padding: 0;
+  }
+
+  #btnThumbSize {
+    display: none;
+  }
+
+  .filterbar {
+    gap: 6px;
+    padding: 0 10px;
+  }
+
+  .select-wrap span,
+  .count-chip {
+    display: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .brand-name {
+    display: none;
+  }
+
+  .filter-right .select-wrap:nth-child(1) svg {
+    opacity: 1;
+  }
+
+  .v-tags {
+    display: none;
+  }
+
+  .viewer-bar {
+    gap: 2px;
+    padding: 4px 8px;
+  }
+
+  .nav-btn {
+    width: 32px;
+    height: 52px;
+  }
+
+  .nav-btn.prev {
+    left: 6px;
+  }
+
+  .nav-btn.next {
+    right: 6px;
+  }
+}
+
+/* 极窄：筛选栏折行隐藏次要项 */
+@media (max-width: 720px) {
+  .pills .pill:nth-child(n + 4) {
+    display: none;
+  }
+
+  .filter-right .select-wrap:nth-child(2) {
+    display: none;
+  }
+
+  :root {
+    --info-w: 280px;
+    --thumb: 132px;
+  }
+}
+
+/* 降低动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

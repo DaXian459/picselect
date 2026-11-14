@@ -1,0 +1,21 @@
+{
+  "name": "picselect",
+  "productName": "PicSelect",
+  "version": "1.0.0",
+  "description": "PicSelect - 轻量快速的本地照片查看与标记工具",
+  "main": "src/main/main.js",
+  "private": true,
+  "author": "PicSelect",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "fixtures": "node scripts/make-fixtures.js",
+    "shot": "electron scripts/screenshot.js",
+    "test": "node scripts/test-parsers.js",
+    "test:ui": "electron scripts/test-ui.js"
+  },
+  "devDependencies": {
+    "electron": "45.3.2"
+  }
+}

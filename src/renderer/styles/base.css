@@ -1,0 +1,387 @@
+/* ============ 基础重置 ============ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  user-select: none;
+  cursor: default;
+}
+
+h1, h2, h3, p {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+img {
+  -webkit-user-drag: none;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--fg);
+}
+
+/* 图标默认描边风格 */
+svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* 图标 sprite 容器 */
+.icon-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scroll);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-hover);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ============ 按钮 ============ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--fg-dim);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease),
+              border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+
+.btn:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.btn:active {
+  transform: scale(.97);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.btn-icon {
+  width: 28px;
+  padding: 0;
+}
+
+/* 开关型图标按钮的激活态：信息面板等 */
+.btn-icon.is-on {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.btn-icon.is-on:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.btn-accent {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.btn-accent:hover {
+  background: var(--accent-hover);
+  color: var(--accent-fg);
+}
+
+.btn-accent svg {
+  stroke-width: 1.9;
+}
+
+.btn-lg {
+  height: 38px;
+  padding: 0 18px;
+  border-radius: var(--r-md);
+  font-size: 13.5px;
+  gap: 8px;
+}
+
+.btn-lg svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* ============ 分段 / 胶囊 ============ */
+.pills {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 11px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  color: var(--fg-dim);
+  font-size: 12px;
+  font-weight: 500;
+  transition: all var(--dur) var(--ease);
+}
+
+.pill svg {
+  width: 13px;
+  height: 13px;
+}
+
+.pill:hover {
+  color: var(--fg);
+  border-color: var(--border-strong);
+}
+
+.pill.is-active {
+  background: var(--accent-soft);
+  border-color: rgba(91, 157, 255, .38);
+  color: var(--accent);
+}
+
+html[data-theme="light"] .pill.is-active {
+  border-color: rgba(37, 99, 235, .3);
+}
+
+/* ============ 下拉 ============ */
+.select-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  color: var(--fg-dim);
+  transition: all var(--dur) var(--ease);
+}
+
+.select-wrap:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.select-wrap svg {
+  width: 14px;
+  height: 14px;
+  opacity: .85;
+}
+
+.select-wrap select {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  outline: none;
+  font-size: 12px;
+  color: inherit;
+  padding-right: 2px;
+  cursor: pointer;
+}
+
+.select-wrap select option {
+  background: var(--bg-elev);
+  color: var(--fg);
+}
+
+/* ============ 标签 ============ */
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  background: var(--bg-active);
+  color: var(--fg-dim);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.tag-chip.is-removable {
+  cursor: pointer;
+}
+
+.tag-chip.is-removable:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* ============ 星标 ============ */
+.stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.star {
+  width: 15px;
+  height: 15px;
+  padding: 1px;
+  color: var(--fg-faint);
+  transition: color 120ms var(--ease), transform 120ms var(--ease);
+}
+
+.star svg {
+  width: 100%;
+  height: 100%;
+  stroke-width: 1.5;
+}
+
+.star.on {
+  color: var(--star);
+}
+
+.star.on svg {
+  fill: currentColor;
+}
+
+.stars.is-interactive .star:hover {
+  transform: scale(1.18);
+  color: var(--star);
+}
+
+/* ============ 工具类 ============ */
+[hidden] {
+  display: none !important;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.muted {
+  color: var(--fg-dim);
+}
+
+.mono {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 11.5px;
+}
+
+/* ============ 提示条 ============ */
+.toast-wrap {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--statusbar-h) + 18px);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 80;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 460px;
+  padding: 9px 14px;
+  border-radius: var(--r-pill);
+  background: var(--glass);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-2);
+  backdrop-filter: blur(14px) saturate(140%);
+  color: var(--fg);
+  font-size: 12.5px;
+  animation: toast-in 220ms var(--ease);
+}
+
+.toast.is-out {
+  animation: toast-out 180ms var(--ease) forwards;
+}
+
+.toast.error {
+  border-color: rgba(255, 107, 107, .4);
+  color: var(--danger);
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px) scale(.97); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes toast-out {
+  to { opacity: 0; transform: translateY(6px) scale(.98); }
+}

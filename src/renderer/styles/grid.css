@@ -1,0 +1,273 @@
+/* ============ 网格视图 ============ */
+.pane-grid {
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.grid-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 14px 20px;
+  scrollbar-gutter: stable;
+}
+
+.grid-canvas {
+  position: relative;
+  width: 100%;
+}
+
+/* 单个瓦片 */
+.tile {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--tile-bg);
+  cursor: pointer;
+  contain: layout paint style;
+  transition: transform var(--dur) var(--ease);
+}
+
+.tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--border);
+  pointer-events: none;
+  transition: box-shadow var(--dur) var(--ease);
+}
+
+.tile:hover {
+  z-index: 2;
+}
+
+.tile:hover::after {
+  box-shadow: inset 0 0 0 1.5px var(--border-strong);
+}
+
+.tile.is-selected::after {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.tile-thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 260ms var(--ease), transform 400ms var(--ease);
+}
+
+.tile-thumb.is-loaded {
+  opacity: 1;
+}
+
+.tile:hover .tile-thumb.is-loaded {
+  transform: scale(1.028);
+}
+
+/* 骨架态 */
+.tile.is-loading::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg,
+      var(--tile-bg) 20%,
+      var(--tile-sheen) 40%,
+      var(--tile-bg) 60%);
+  background-size: 220% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from { background-position: 120% 0; }
+  to { background-position: -40% 0; }
+}
+
+.tile.is-error::before {
+  content: "无法预览";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: var(--fg-faint);
+  background: repeating-linear-gradient(45deg,
+      var(--tile-bg) 0 8px,
+      var(--bg-sunken) 8px 16px);
+}
+
+/* 角标 */
+.tile-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(8, 10, 14, .62);
+  backdrop-filter: blur(6px);
+  color: rgba(255, 255, 255, .88);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  line-height: 1.5;
+}
+
+.tile-badge.is-low {
+  background: rgba(180, 120, 20, .8);
+}
+
+/* 收藏心 */
+.tile-fav {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(8, 10, 14, .32);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transform: scale(.85);
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+
+.tile-fav svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2;
+}
+
+.tile:hover .tile-fav,
+.tile.is-fav .tile-fav {
+  opacity: 1;
+  transform: none;
+}
+
+.tile.is-fav .tile-fav {
+  color: #ff5d73;
+  background: rgba(8, 10, 14, .45);
+}
+
+.tile.is-fav .tile-fav svg {
+  fill: currentColor;
+}
+
+.tile-fav:hover {
+  background: rgba(255, 93, 115, .9);
+  color: #fff;
+}
+
+/* 底部覆盖层 */
+.tile-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 16px 7px 5px;
+  background: linear-gradient(to top, rgba(6, 8, 11, .72), rgba(6, 8, 11, .28) 55%, transparent);
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+
+.tile:hover .tile-bottom,
+.tile.has-rating .tile-bottom {
+  opacity: 1;
+}
+
+.tile-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, .92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+}
+
+.tile-stars {
+  display: flex;
+  gap: 0;
+  flex: none;
+}
+
+.tile-stars .star {
+  width: 13px;
+  height: 13px;
+  padding: 1px;
+  color: rgba(255, 255, 255, .38);
+}
+
+.tile-stars .star.on {
+  color: var(--star);
+}
+
+.tile-stars.stars.is-interactive .star:hover {
+  transform: scale(1.2);
+}
+
+/* ============ 空状态 ============ */
+.empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 30px;
+  text-align: center;
+  background: var(--bg);
+}
+
+.empty-mark {
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 18px;
+  background: var(--bg-hover);
+  color: var(--fg-faint);
+  margin-bottom: 4px;
+}
+
+.empty-mark svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 1.4;
+}
+
+.empty-state h2 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.empty-state p {
+  max-width: 380px;
+  font-size: 12.5px;
+  color: var(--fg-dim);
+  line-height: 1.6;
+}
+
+.empty-state .btn-lg {
+  margin-top: 8px;
+}
+
+.empty-hint {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--fg-faint);
+}

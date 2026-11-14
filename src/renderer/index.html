@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; connect-src 'self'; font-src 'self'; media-src 'self' blob:">
+  <title>PicSelect</title>
+  <link rel="stylesheet" href="app://picselect/renderer/styles/theme.css">
+  <link rel="stylesheet" href="app://picselect/renderer/styles/base.css">
+  <link rel="stylesheet" href="app://picselect/renderer/styles/layout.css">
+  <link rel="stylesheet" href="app://picselect/renderer/styles/grid.css">
+  <link rel="stylesheet" href="app://picselect/renderer/styles/viewer.css">
+  <link rel="stylesheet" href="app://picselect/renderer/styles/responsive.css">
+</head>
+<body>
+  <svg class="icon-defs" width="0" height="0" aria-hidden="true">
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 6.4M20 4v7h-7"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.6l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.8l5.9-.9Z"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-9a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 4.6-7 9-7 9Z"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.6v.9"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/></symbol>
+    <symbol id="i-auto" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17Z" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="m4 17 4.5-4.5L13 17l3-3 4 4"/></symbol>
+    <symbol id="i-chev-left" viewBox="0 0 24 24"><path d="M14.5 5 8 12l6.5 7"/></symbol>
+    <symbol id="i-chev-right" viewBox="0 0 24 24"><path d="M9.5 5 16 12l-6.5 7"/></symbol>
+    <symbol id="i-zoom-in" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M11 8.5v5M8.5 11h5M20 20l-4.2-4.2"/></symbol>
+    <symbol id="i-zoom-out" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M8.5 11h5M20 20l-4.2-4.2"/></symbol>
+    <symbol id="i-fit" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M4 11.5V5a1 1 0 0 1 1-1h6.5L20 12.5 12.5 20 4 11.5Z"/><circle cx="8.2" cy="8.2" r="1.3"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4.8h6V7M6.5 7l1 12.2a1 1 0 0 0 1 .8h7a1 1 0 0 0 1-.8L17.5 7"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7"/></symbol>
+    <symbol id="i-sort" viewBox="0 0 24 24"><path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/></symbol>
+  </svg>
+
+  <div id="app">
+    <header class="titlebar" id="titlebar">
+      <div class="brand no-drag">
+        <span class="brand-mark"><svg><use href="#i-image"/></svg></span>
+        <span class="brand-name">PicSelect</span>
+      </div>
+
+      <div class="tb-actions no-drag">
+        <button class="btn btn-accent" id="btnOpen" title="打开文件夹 (Ctrl+O)">
+          <svg><use href="#i-folder"/></svg><span>打开文件夹</span>
+        </button>
+        <button class="btn btn-icon" id="btnRescan" title="重新扫描 (F5)">
+          <svg><use href="#i-refresh"/></svg>
+        </button>
+      </div>
+
+      <label class="searchbox no-drag" for="search">
+        <svg class="search-icon"><use href="#i-search"/></svg>
+        <input id="search" type="search" placeholder="搜索文件名" spellcheck="false" autocomplete="off">
+        <button class="search-clear" id="searchClear" type="button" hidden title="清除">
+          <svg><use href="#i-x"/></svg>
+        </button>
+      </label>
+
+      <div class="tb-spacer"></div>
+
+      <div class="tb-actions no-drag">
+        <button class="btn btn-icon" id="btnThumbSize" title="缩略图大小">
+          <svg><use href="#i-grid"/></svg>
+        </button>
+        <button class="btn btn-icon" id="btnTheme" title="切换主题">
+          <svg><use href="#i-moon"/></svg>
+        </button>
+        <button class="btn btn-icon" id="btnInfo" title="信息面板 (I)">
+          <svg><use href="#i-info"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="filterbar" id="filterbar">
+      <div class="pills no-drag" id="filterPills">
+        <button class="pill is-active" data-filter="all">全部</button>
+        <button class="pill" data-filter="favorite"><svg><use href="#i-heart"/></svg>收藏</button>
+        <button class="pill" data-filter="rated3"><svg><use href="#i-star"/></svg>3 星以上</button>
+        <button class="pill" data-filter="untagged">未标记</button>
+      </div>
+      <div class="filter-right no-drag">
+        <label class="select-wrap" title="标签筛选">
+          <svg><use href="#i-tag"/></svg>
+          <select id="tagSelect"><option value="">全部标签</option></select>
+        </label>
+        <label class="select-wrap" title="排序方式">
+          <svg><use href="#i-sort"/></svg>
+          <select id="sortSelect">
+            <option value="name">文件名</option>
+            <option value="date-desc">最新修改</option>
+            <option value="date-asc">最早修改</option>
+            <option value="size-desc">体积从大到小</option>
+          </select>
+        </label>
+        <span class="count-chip" id="countChip">0 张</span>
+      </div>
+    </div>
+
+    <main id="main">
+      <section class="pane pane-grid" id="gridPane">
+        <div class="grid-scroll" id="gridScroll">
+          <div class="grid-canvas" id="gridCanvas"></div>
+          <div class="grid-sentinel" id="gridSentinel"></div>
+        </div>
+        <div class="empty-state" id="emptyState" hidden>
+          <div class="empty-mark"><svg><use href="#i-image"/></svg></div>
+          <h2 id="emptyTitle">还没有打开任何目录</h2>
+          <p id="emptyDesc">选择一个照片文件夹，PicSelect 会快速建立缩略图索引。</p>
+          <button class="btn btn-accent btn-lg" id="emptyOpen">
+            <svg><use href="#i-folder"/></svg><span>选择文件夹</span>
+          </button>
+          <p class="empty-hint">也可以直接把文件夹或图片拖到窗口里</p>
+        </div>
+      </section>
+
+      <section class="pane pane-viewer" id="viewerPane" hidden>
+        <div class="viewer-stage" id="stage">
+          <div class="zoom-wrap" id="zoomWrap">
+            <img class="viewer-img layer a" id="layerA" alt="" decoding="async">
+            <img class="viewer-img layer b" id="layerB" alt="" decoding="async">
+          </div>
+        </div>
+
+        <button class="nav-btn prev" id="navPrev" title="上一张 (←)"><svg><use href="#i-chev-left"/></svg></button>
+        <button class="nav-btn next" id="navNext" title="下一张 (→)"><svg><use href="#i-chev-right"/></svg></button>
+
+        <div class="viewer-overlay top">
+          <div class="viewer-title">
+            <span class="v-name" id="vName">—</span>
+            <span class="v-index" id="vIndex">0 / 0</span>
+          </div>
+          <div class="viewer-tools">
+            <button class="btn btn-icon glass" id="btnBackToGrid" title="返回网格 (G / Esc)">
+              <svg><use href="#i-grid"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="viewer-overlay bottom">
+          <div class="viewer-bar">
+            <div class="v-rate" id="vRate"></div>
+            <span class="v-sep"></span>
+            <button class="btn btn-icon" id="vFav" title="收藏 (F)"><svg><use href="#i-heart"/></svg></button>
+            <button class="btn btn-icon" id="vTag" title="添加标签 (T)"><svg><use href="#i-tag"/></svg></button>
+            <span class="v-sep"></span>
+            <button class="btn btn-icon" id="vZoomOut" title="缩小 (-)"><svg><use href="#i-zoom-out"/></svg></button>
+            <span class="v-zoom" id="vZoom">100%</span>
+            <button class="btn btn-icon" id="vZoomIn" title="放大 (+)"><svg><use href="#i-zoom-in"/></svg></button>
+            <button class="btn btn-icon" id="vFit" title="适应窗口 (Ctrl+0)"><svg><use href="#i-fit"/></svg></button>
+            <span class="v-sep"></span>
+            <div class="v-tags" id="vTags"></div>
+            <button class="btn btn-icon" id="vInfo" title="信息 (I)"><svg><use href="#i-info"/></svg></button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="pane pane-info" id="infoPane" hidden>
+        <div class="info-head">
+          <span>图片信息</span>
+          <button class="btn btn-icon" id="infoClose" title="关闭 (I)"><svg><use href="#i-x"/></svg></button>
+        </div>
+        <div class="info-body" id="infoBody"></div>
+      </aside>
+    </main>
+
+    <footer class="statusbar" id="statusbar">
+      <div class="sb-left" id="sbLeft">就绪</div>
+      <div class="sb-right">
+        <span id="sbCache">缩略图缓存 —</span>
+        <span class="sb-dot"></span>
+        <span id="sbPos">—</span>
+        <span class="sb-dot"></span>
+        <span id="sbZoom">100%</span>
+      </div>
+    </footer>
+  </div>
+
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <script type="module" src="app://picselect/renderer/js/app.js"></script>
+</body>
+</html>
