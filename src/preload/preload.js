@@ -33,6 +33,14 @@ contextBridge.exposeInMainWorld('picselect', {
   reveal: (path) => invoke('shell:reveal', { path }),
   setFullscreen: (value) => invoke('win:fullscreen', { value }),
 
+  pickExportDir: () => invoke('export:pickDir'),
+  runExport: (files, dir) => invoke('export:run', { files, dir }),
+  revealExportDir: (dir) => invoke('export:reveal', { dir }),
+
+  detectExternal: () => invoke('ext:detect'),
+  openExternal: (kind, path) => invoke('ext:open', { kind, path }),
+  pickExternal: (kind) => invoke('ext:pick', { kind }),
+
   // 唯一需要触碰 File 对象的地方：Electron 32+ 用 webUtils 取代已移除的 File.path
   pathForFile: (file) => {
     try {

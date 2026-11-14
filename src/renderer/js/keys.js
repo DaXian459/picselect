@@ -17,6 +17,12 @@ export function initKeys(handlers) {
       return
     }
 
+    if (mod && key.toLowerCase() === 'e') {
+      event.preventDefault()
+      handlers.exportSel()
+      return
+    }
+
     if (key === 'F5') {
       event.preventDefault()
       handlers.rescan()
@@ -79,6 +85,14 @@ export function initKeys(handlers) {
       case '/':
         event.preventDefault()
         handlers.search()
+        break
+      case 'p':
+      case 'P':
+        handlers.photoshop()
+        break
+      case 'l':
+      case 'L':
+        handlers.lightroom()
         break
       case '+':
       case '=':

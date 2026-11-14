@@ -17,6 +17,7 @@ const $ = (id) => document.getElementById(id)
 let cacheCount = 0
 let searchTimer = 0
 let ticker = 0
+let busyLabel = ''
 
 /* ---------------- 启动 ---------------- */
 
@@ -39,6 +40,7 @@ async function boot() {
 
   await applyPrefs()
   await loadInitial()
+  refreshExternalApps()
 
   ticker = window.setInterval(updateStatus, 1000)
   window.setInterval(refreshCacheCount, 8000)
@@ -365,6 +367,10 @@ function bindToolbar() {
   $('btnTheme').addEventListener('click', cycleTheme)
   $('btnInfo').addEventListener('click', () => toggleInfo())
   $('infoClose').addEventListener('click', () => toggleInfo(false))
+
+  $('btnExport').addEventListener('click', doExport)
+  $('vPs').addEventListener('click', () => openWithApp('photoshop'))
+  $('vLr').addEventListener('click', () => openWithApp('lightroom'))
 }
 
 async function openFolder() {
@@ -391,6 +397,104 @@ async function rescan() {
     }
   } catch (err) {
     toast(err.message || '重新扫描失败', { level: 'error' })
+  }
+}
+
+/* ---------------- 导出 / 外部程序 ---------------- */
+
+let externalApps = {}
+
+function errText(err, fallback) {
+  const raw = (err && err.message) || ''
+  const stripped = raw.replace(/^Error invoking remote method '[^']+':\s*(Error:\s*)?/, '')
+  return stripped || fallback
+}
+
+async function doExport() {
+  const items = state.filtered
+  if (!items.length) {
+    toast('当前筛选结果为空，没有可导出的照片', { level: 'error' })
+    return
+  }
+
+  let dir = ''
+  try {
+    dir = await api.pickExportDir()
+  } catch (err) {
+    toast(errText(err, '无法选择导出目录'), { level: 'error' })
+    return
+  }
+  if (!dir) return
+
+  const btn = $('btnExport')
+  const label = btn.querySelector('span')
+  const original = label ? label.textContent : ''
+  btn.classList.add('is-busy')
+  if (label) label.textContent = '导出中'
+  busyLabel = `正在导出 ${items.length} 张…`
+  updateStatus()
+
+  try {
+    const res = await api.runExport(items.map((item) => item.path), dir)
+    const summary = res.failed
+      ? `已导出 ${res.copied} 张，${res.failed} 张失败`
+      : `已导出 ${res.copied} 张照片`
+    toast(`${summary} · ${res.csv}`, {
+      level: res.failed ? 'error' : 'info',
+      action: { label: '打开目录', run: () => api.revealExportDir(res.dir) }
+    })
+    refreshCacheCount()
+  } catch (err) {
+    toast(errText(err, '导出失败'), { level: 'error' })
+  } finally {
+    btn.classList.remove('is-busy')
+    if (label) label.textContent = original
+    busyLabel = ''
+    updateStatus()
+  }
+}
+
+async function refreshExternalApps() {
+  try {
+    externalApps = await api.detectExternal()
+  } catch {
+    externalApps = {}
+  }
+  paintExternalButtons()
+}
+
+function paintExternalButtons() {
+  for (const [id, kind] of [['vPs', 'photoshop'], ['vLr', 'lightroom']]) {
+    const btn = $(id)
+    if (!btn) continue
+    const app = externalApps[kind]
+    const label = kind === 'photoshop' ? 'Photoshop' : 'Lightroom'
+    const key = kind === 'photoshop' ? 'P' : 'L'
+    const missing = !app || !app.path
+    btn.classList.toggle('is-missing', missing)
+    btn.title = missing
+      ? `未找到 ${label}，点击选择程序路径 (${key})`
+      : `用 ${label} 打开 (${key})\n${app.path}`
+  }
+}
+
+async function openWithApp(kind) {
+  const item = currentItem()
+  if (!item) {
+    toast('还没有选中照片', { level: 'error' })
+    return
+  }
+  const label = kind === 'photoshop' ? 'Photoshop' : 'Lightroom'
+  try {
+    const app = await api.openExternal(kind, item.path)
+    if (app && app.source === 'manual') {
+      toast(`已用 ${label} 打开`)
+      refreshExternalApps()
+    }
+  } catch (err) {
+    const message = errText(err, `无法用 ${label} 打开`)
+    if (/取消|cancel/i.test(message)) return
+    toast(message, { level: 'error' })
   }
 }
 
@@ -535,6 +639,9 @@ const keyHandlers = {
   },
   tag: () => focusTagInput(),
   search: () => $('search').focus(),
+  exportSel: () => doExport(),
+  photoshop: () => openWithApp('photoshop'),
+  lightroom: () => openWithApp('lightroom'),
   zoom: (factor) => {
     if (state.view === 'viewer') viewer.zoomBy(factor)
   },
@@ -604,9 +711,8 @@ function updateStatus() {
   const all = state.items.length
 
   $('countChip').textContent = total === all ? `${total} 张` : `${total} / ${all} 张`
-  $('sbLeft').textContent = state.scanning
-    ? '正在扫描目录…'
-    : state.root || '就绪'
+  $('sbLeft').textContent = busyLabel
+    || (state.scanning ? '正在扫描目录…' : state.root || '就绪')
 
   $('sbPos').textContent = total ? `${state.selected + 1} / ${total}` : '—'
   $('sbZoom').textContent = state.view === 'viewer'

@@ -12,7 +12,7 @@
     "dev": "electron . --dev",
     "fixtures": "node scripts/make-fixtures.js",
     "shot": "electron scripts/screenshot.js",
-    "test": "node scripts/test-parsers.js",
+    "test": "node scripts/test-parsers.js && node scripts/test-export.js && node scripts/test-external.js",
     "test:ui": "electron scripts/test-ui.js",
     "pack": "node scripts/dist.js --dir",
     "dist": "node scripts/dist.js"

@@ -7,6 +7,7 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
+const os = require('node:os')
 const { app, protocol, nativeTheme } = require('electron')
 
 // 与 main.js 保持一致，避免测试数据写到 %APPDATA%\Electron
@@ -153,6 +154,27 @@ async function main() {
   })()`))
   check('数字键 5 打 5 星', keyRated && keyRated.rating === 5, JSON.stringify(keyRated))
 
+  console.log('\n== 导出 / 外部程序 ==')
+  const exportDir = path.join(os.tmpdir(), `picselect-ui-export-${Date.now()}`)
+  const exported = JSON.parse(await evalJs(`(async () => {
+    const s = window.__picselect.state
+    const files = s.filtered.slice(0, 2).map((i) => i.path)
+    const res = await window.picselect.runExport(files, ${JSON.stringify(exportDir)})
+    return JSON.stringify(res)
+  })()`))
+  check('IPC 导出复制了 2 个文件', exported.copied === 2 && exported.failed === 0, JSON.stringify(exported))
+  check('导出生成 CSV 清单', Boolean(exported.csv) && fs.existsSync(path.join(exportDir, exported.csv)))
+  const diskFiles = fs.readdirSync(exportDir)
+  check('目录内 = 2 张照片 + 1 份清单', diskFiles.length === 3, diskFiles.join('|'))
+
+  const external = JSON.parse(await evalJs(`(async () => JSON.stringify(await window.picselect.detectExternal()))()`))
+  check('能探测 Photoshop / Lightroom', Boolean(external.photoshop && external.lightroom), JSON.stringify(external))
+  const glyphs = JSON.parse(await evalJs(`JSON.stringify({
+    ps: Boolean(document.querySelector('#vPs')), lr: Boolean(document.querySelector('#vLr')),
+    exportBtn: Boolean(document.getElementById('btnExport'))
+  })`))
+  check('Ps / Lr / 导出 入口都已渲染', glyphs.ps && glyphs.lr && glyphs.exportBtn, JSON.stringify(glyphs))
+
   console.log('\n== 持久化 ==')
   await sleep(700)
   let saved = null
@@ -193,6 +215,8 @@ async function main() {
   })`))
   check('二次加载 1.2s 内出图', secondLoad.loaded > 0, JSON.stringify(secondLoad))
   console.log(`    （第二次加载耗时 ${Date.now() - t0}ms，已出图 ${secondLoad.loaded}/${secondLoad.tiles}）`)
+
+  try { fs.rmSync(exportDir, { recursive: true, force: true }) } catch {}
 
   console.log(`\n结果：${pass} 通过 / ${fail} 失败`)
   process.exitCode = fail ? 1 : 0

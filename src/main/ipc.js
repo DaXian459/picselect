@@ -5,6 +5,8 @@ const fsp = require('node:fs/promises')
 const { ipcMain, dialog, nativeTheme, shell, app, BrowserWindow } = require('electron')
 const library = require('./library')
 const store = require('./store')
+const exporter = require('./exporter')
+const external = require('./external')
 const { readExif } = require('./exif/exif')
 const { readDimensions } = require('./exif/dimensions')
 const { mediaUrl, isSupported } = require('./util/paths')
@@ -187,6 +189,51 @@ function registerIpc() {
     const next = typeof payload.value === 'boolean' ? payload.value : !win.isFullScreen()
     win.setFullScreen(next)
     return next
+  })
+
+  /* ---------------- 导出 ---------------- */
+
+  ipcMain.handle('export:pickDir', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const prefs = store.getPrefs()
+    const res = await dialog.showOpenDialog(win, {
+      title: '选择导出目录',
+      defaultPath: prefs.exportDir || prefs.lastDir || app.getPath('pictures'),
+      properties: ['openDirectory', 'createDirectory'],
+      buttonLabel: '导出到这里'
+    })
+    if (res.canceled || !res.filePaths.length) return null
+    return res.filePaths[0]
+  })
+
+  ipcMain.handle('export:run', async (_event, payload = {}) => {
+    const files = Array.isArray(payload.files) ? payload.files : []
+    if (!payload.dir) throw new Error('未选择导出目录')
+    const result = await exporter.exportSelection(files, payload.dir)
+    exporter.rememberDir(result.dir)
+    return result
+  })
+
+  ipcMain.handle('export:reveal', async (_event, payload = {}) => {
+    if (typeof payload.dir !== 'string' || !payload.dir) return false
+    const err = await shell.openPath(path.resolve(payload.dir))
+    if (err) throw new Error(err)
+    return true
+  })
+
+  /* ---------------- 外部程序 ---------------- */
+
+  ipcMain.handle('ext:detect', () => external.detect(true))
+
+  ipcMain.handle('ext:open', async (event, payload = {}) => {
+    const file = assertAllowed(payload.path)
+    const win = BrowserWindow.fromWebContents(event.sender)
+    return external.openWith(payload.kind || 'photoshop', file, win)
+  })
+
+  ipcMain.handle('ext:pick', async (event, payload = {}) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    return external.pick(payload.kind, win)
   })
 }
 

@@ -71,6 +71,41 @@ npm run dist    # 出安装包 + 便携版（首次约 2 分钟，需下载 NSIS
 - **大图查看器**：A/B 双层 `<img>` 交叉淡入，切图无白闪；支持滚轮以光标为锚点缩放、拖拽平移、双击在「适应窗口 / 100%」间切换。
 - **信息面板**：文件名、尺寸、体积、修改时间、格式、预览来源，以及相机/镜头/光圈/快门/ISO/焦距/拍摄时间/方向。
 - **标记**：0–5 星评分、收藏、任意标签（去重，单张最多 24 个）。网格、查看器、信息面板三处操作实时同步。
+- **导出**：把当前筛选结果复制到一个目录，并附一份 CSV 清单（星级、标签、EXIF、原路径）。范围就是「网格里现在看到的东西」，所以「筛收藏 → 导出」就是交付收藏。
+- **外部程序**：查看器里一键把当前照片送到 Photoshop / Lightroom，RAW 交给 Photoshop 会自动进入 Camera Raw。
+
+## 导出与外部程序
+
+### 导出
+
+点筛选条右侧的「导出」（或 `Ctrl + E`）：
+
+1. 选一个目标文件夹（记住上次的选择）；
+2. 命中的照片复制过去，同名文件自动改名为 `name (1).jpg`，不会覆盖；
+3. 同目录生成 `PicSelect-导出清单-20261114-1305.csv`，带 UTF-8 BOM，Excel 双击直接打开不乱码。
+
+清单列：文件名、星级、收藏、标签、宽、高、体积、修改时间、拍摄时间、相机、镜头、光圈、快门、ISO、焦距、导出文件名、原路径。
+
+导出范围跟随筛选条，所以常见组合是：
+
+| 想要 | 操作 |
+| --- | --- |
+| 所有收藏 | 筛「收藏」→ 导出 |
+| 三星以上精选 | 筛「3 星以上」→ 导出 |
+| 某个标签的图 | 标签下拉选标签 → 导出 |
+| 搜索结果 | 搜索框输入 → 导出 |
+| 挑过的全部（有星或有标签） | 筛「未标记」的反面不好直接选，建议用标签或星级筛选 |
+
+### Photoshop / Lightroom
+
+查看器底部工具条右侧有 **Ps** 和 **Lr** 两个按钮（快捷键 `P` / `L`）。
+
+- **自动探测**：启动时扫 `%ProgramFiles%\Adobe\Adobe Photoshop*` 与 `Adobe Lightroom*`，多版本取最新的。
+- **没装 / 装在非标准路径**：按钮变暗，点一下会弹出文件选择器让你指定 `Photoshop.exe` / `Lightroom.exe`，路径存进配置，之后一直有效。
+- **Camera Raw**：没有独立的 Camera Raw 程序，RAW 文件直接用 Photoshop 打开时，PS 会自动用 Camera Raw 打开它——这就是「用 Camera Raw 编辑」的常规路径。
+- **Lightroom Classic** 接收命令行文件参数时走的是「导入」流程，可能需要在 LR 里确认一次。
+
+> 早期版本用 `reg query` 读注册表定位 Adobe 安装路径，但那样每次启动都要起一个 `reg.exe` 子进程，在开了软件限制策略或行为拦截的机器上会被直接拦住，收益也有限，已改为纯目录扫描 + 手动指定。
 
 ## 格式支持
 
@@ -94,6 +129,7 @@ RAW 的处理策略是「找现成的图」而不是算出来：
 | 键 | 作用 |
 | --- | --- |
 | `Ctrl + O` | 打开文件夹 |
+| `Ctrl + E` | 导出当前筛选结果 |
 | `F5` | 重新扫描当前目录 |
 | `/` | 聚焦搜索框 |
 | `←` `→` / `J` `K` | 上一张 / 下一张 |
@@ -104,6 +140,7 @@ RAW 的处理策略是「找现成的图」而不是算出来：
 | `T` | 添加标签 |
 | `I` | 显示 / 隐藏信息面板 |
 | `G` | 网格 ⇄ 大图切换 |
+| `P` / `L` | 用 Photoshop / Lightroom 打开当前照片 |
 | `+` `-` `Ctrl + 0` | 放大 / 缩小 / 适应窗口 |
 | 双击图片 | 适应窗口 ⇄ 100% |
 | `Esc` | 关闭查看器 / 取消输入 |
@@ -126,9 +163,18 @@ RAW 的处理策略是「找现成的图」而不是算出来：
   "photos": {
     "d:\\photos\\dsc01835.arw": { "rating": 4, "favorite": true, "tags": ["人像", "待修"] }
   },
-  "prefs": { "lastDir": "D:\\Photos", "theme": "system", "thumbSize": 168, "sort": "name" }
+  "prefs": {
+    "lastDir": "D:\\Photos",
+    "exportDir": "D:\\交付\\2026-11-14",
+    "theme": "system",
+    "thumbSize": 168,
+    "sort": "name",
+    "external": { "photoshop": "C:\\Program Files\\Adobe\\Adobe Photoshop 2026\\Photoshop.exe", "lightroom": null }
+  }
 }
 ```
+
+`external` 里为 `null` 表示交给自动探测；填了绝对路径就以它为准（每次使用前会校验文件是否还在，失效则回落到自动探测）。
 
 ## 目录结构
 
@@ -140,6 +186,8 @@ src/main/            主进程
   ipc.js             全部 IPC 通道
   library.js         目录扫描（非递归，中文本地化自然排序）
   store.js           library.json 原子持久化
+  exporter.js        导出：复制照片 + 生成 CSV 清单
+  external.js        Photoshop / Lightroom 探测与调用
   exif/              TIFF/IFD 解析、EXIF 提取、方向处理、尺寸嗅探
   tiff/              纯 JS TIFF 解码器 + PNG 编码器（LZW/PackBits/Deflate）
   raw/               RAW 内嵌预览提取（IFD → 全文件扫描 → 系统兜底）
@@ -164,10 +212,15 @@ Chromium 默认按 EXIF 的 `Orientation` 自动旋转（`image-orientation: fro
 
 ```bash
 npm run fixtures      # 生成 29 个测试素材（含 8 种方向、6 种 TIFF 编码、3 种 RAW 布局）
-npm test              # 解析器断言：33 项，纯 Node 运行
-npm run test:ui       # 端到端交互：21 项
+npm test              # 解析器 33 项 + 导出 12 项 + 外部程序探测 8 项，纯 Node 运行
+npm run test:ui       # 端到端交互：26 项（含 IPC 导出、按钮渲染、持久化、缓存）
 npm run shot -- --scene grid --theme dark --out shots/grid.png
 ```
+
+测试里有两类值得注意的技巧：
+
+- **导出测试**直接把 fixtures 目录当图库、导出到临时目录，断言文件数、CSV 的 BOM 与列内容、同名冲突改名、目录外路径被拒绝——全在纯 Node 下跑，不用起窗口。
+- **外部程序测试**用临时目录伪造出 `Adobe/Adobe Photoshop 2026/Photoshop.exe` 这种结构，验证多版本选新、不会误认 Photoshop Elements、手动路径失效后回落。所以即使没装 Adobe 也能测。
 
 ## 已知限制
 
@@ -176,3 +229,5 @@ npm run shot -- --scene grid --theme dark --out shots/grid.png
 - **CR3 是 ISO BMFF 容器**：不走 TIFF/IFD 路径，只能靠全文件扫描或系统兜底，成功率取决于文件是否有内嵌 JPEG。
 - **大尺寸 TIFF**：分块（Tiled）TIFF 暂不支持，会降级为系统缩略图；超过 64MB 的文件只读取头部提取 EXIF。
 - **单目录、非递归**：不做目录树，一次只浏览一个文件夹。需要批量操作请配合系统文件管理器。
+- **导出是复制不是移动**：原文件始终不动。导出目录里同名文件会加 `(1)` 后缀，不会覆盖已有文件。
+- **Lightroom 是「导入」不是「打开」**：Lightroom Classic 收到文件参数会走导入流程，可能需要在 LR 侧确认；想直接调色更适合用 Photoshop（RAW 会自动进 Camera Raw）。

@@ -141,6 +141,39 @@ svg {
   padding: 0;
 }
 
+/* Ps / Lr 这类用文字当图标的 symbol，别继承外层的描边 */
+svg text {
+  fill: currentColor;
+  stroke: none;
+}
+
+/* 筛选条里的导出按钮：带文字、比图标按钮显眼一点 */
+.btn-export {
+  height: 26px;
+  padding: 0 10px 0 8px;
+  margin-left: 6px;
+  gap: 5px;
+  border-radius: var(--r-pill);
+  border-color: var(--border);
+  font-size: 12.5px;
+  color: var(--fg-dim);
+}
+
+.btn-export svg {
+  width: 14px;
+  height: 14px;
+}
+
+.btn-export:hover {
+  color: var(--fg);
+  border-color: var(--border-strong);
+}
+
+.btn-export.is-busy {
+  opacity: .6;
+  pointer-events: none;
+}
+
 /* 开关型图标按钮的激活态：信息面板等 */
 .btn-icon.is-on {
   background: var(--accent-soft);
@@ -375,6 +408,29 @@ html[data-theme="light"] .pill.is-active {
 .toast.error {
   border-color: rgba(255, 107, 107, .4);
   color: var(--danger);
+}
+
+/* toast-wrap 整体不接收鼠标事件，按钮单独打开 */
+.toast-action {
+  pointer-events: auto;
+  margin-left: 2px;
+  padding: 0 10px;
+  height: 22px;
+  flex: none;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-hover);
+  color: var(--fg);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--dur), color var(--dur), border-color var(--dur);
+}
+
+.toast-action:hover {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+  color: var(--accent);
 }
 
 @keyframes toast-in {

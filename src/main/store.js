@@ -14,7 +14,10 @@ const DEFAULTS = {
     filter: 'all',
     sort: 'name',
     infoOpen: false,
-    recent: []
+    recent: [],
+    exportDir: null,
+    // 外部程序路径，null = 让主进程自动探测
+    external: { photoshop: null, lightroom: null }
   }
 }
 

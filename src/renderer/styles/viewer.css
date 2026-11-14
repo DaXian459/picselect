@@ -201,6 +201,21 @@
   width: 27px;
 }
 
+/* 没探测到 Ps / Lr 时弱化显示，点一下就去选路径 */
+.viewer-bar .btn.is-missing {
+  color: rgba(255, 255, 255, .55);
+}
+
+.viewer-bar .btn.is-missing:hover {
+  color: #fff;
+}
+
+/* Ps / Lr 是文字图标，给大一点占位才看得清 */
+.viewer-bar .btn-glyph svg {
+  width: 17px;
+  height: 17px;
+}
+
 .v-sep {
   width: 1px;
   height: 16px;
