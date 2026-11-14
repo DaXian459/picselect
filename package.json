@@ -1,7 +1,7 @@
 {
   "name": "picselect",
   "productName": "PicSelect",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "PicSelect - 轻量快速的本地照片查看与标记工具",
   "main": "src/main/main.js",
   "private": true,
