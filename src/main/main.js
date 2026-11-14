@@ -9,6 +9,17 @@ const APP_ROOT = path.resolve(__dirname, '..', '..')
 // 而不是随启动方式（electron . / electron scripts/xxx.js）漂移到 %APPDATA%\Electron。
 app.setName('PicSelect')
 
+// 便携版（portable.exe）会把自身解压到临时目录运行，并注入 PORTABLE_EXECUTABLE_DIR。
+// 此时把数据放到 exe 同级，实现「拷走整个文件夹标记也跟着走」的绿色版行为。
+const portableDir = process.env.PORTABLE_EXECUTABLE_DIR
+if (portableDir) {
+  try {
+    app.setPath('userData', path.join(portableDir, 'PicSelectData'))
+  } catch {
+    // exe 放在只读位置（如 Program Files）时退回默认位置
+  }
+}
+
 // 必须在 app ready 之前执行，且只能调用一次：
 // standard 让页面获得正常 origin（localStorage / IndexedDB 可用），
 // supportFetchAPI 让 renderer 能 fetch('app://...')。
@@ -35,7 +46,10 @@ const raw = require('./raw')
 
 function parseArgs(argv) {
   const out = { dev: false }
-  for (let i = 2; i < argv.length; i++) {
+  // 打包后 process.argv 是 [exe, ...args]，开发时是 [electron, '.', ...args]，
+  // 起始下标差一位；写死 2 会导致打包版吞掉 --open 等参数。
+  const start = process.defaultApp ? 2 : 1
+  for (let i = start; i < argv.length; i++) {
     const arg = argv[i]
     if (arg === '--dev') out.dev = true
     else if (arg === '--open') out.open = argv[++i]

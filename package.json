@@ -13,9 +13,49 @@
     "fixtures": "node scripts/make-fixtures.js",
     "shot": "electron scripts/screenshot.js",
     "test": "node scripts/test-parsers.js",
-    "test:ui": "electron scripts/test-ui.js"
+    "test:ui": "electron scripts/test-ui.js",
+    "pack": "node scripts/dist.js --dir",
+    "dist": "node scripts/dist.js"
   },
   "devDependencies": {
-    "electron": "45.3.2"
+    "electron": "45.3.2",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "com.picselect.viewer",
+    "productName": "PicSelect",
+    "copyright": "Copyright © 2026 PicSelect",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "src/**/*",
+      "assets/icon.png",
+      "package.json"
+    ],
+    "asar": false,
+    "electronDownload": {
+      "mirror": "https://npmmirror.com/mirrors/electron/"
+    },
+    "win": {
+      "icon": "assets/icon.png",
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "PicSelect",
+      "artifactName": "${productName}-${version}-setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.${ext}"
+    }
   }
 }

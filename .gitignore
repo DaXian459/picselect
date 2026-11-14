@@ -5,6 +5,7 @@ node_modules/
 # 生成物：测试素材、验收截图（docs/ 里的 README 截图保留）
 fixtures/
 shots/
+dist/
 
 # 真实照片样片（体积大且为私人照片，不入库）
 raw/

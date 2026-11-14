@@ -28,6 +28,29 @@ npx electron . --select 3             # 打开后定位到第 3 张（配合 --o
 npx electron . --theme light          # 强制浅色
 ```
 
+## 打包成 Windows 程序
+
+```bash
+npm run pack    # 只出免安装目录 dist/win-unpacked（约 10 秒，用来快速验证）
+npm run dist    # 出安装包 + 便携版（首次约 2 分钟，需下载 NSIS 等打包工具）
+```
+
+产物在 `dist/`：
+
+| 文件 | 体积 | 说明 |
+| --- | --- | --- |
+| `PicSelect-1.0.0-setup.exe` | 116 MB | NSIS 安装包，可选安装目录，建桌面/开始菜单快捷方式 |
+| `PicSelect-1.0.0-portable.exe` | 106 MB | 单文件便携版，双击即用，不写注册表 |
+| `win-unpacked/` | 358 MB | 免安装目录，可直接运行 `PicSelect.exe` |
+
+几点说明：
+
+- **体积**基本就是 Electron 运行时（约 355 MB 解压后），应用自身的代码只有 268 KB。
+- **便携版是绿色版**：数据写在 exe 同级的 `PicSelectData/`，整个文件夹拷到 U 盘换台机器打开，标记和偏好都还在。放在只读目录时会自动退回 `%APPDATA%\PicSelect`。
+- **没有 asar 打包**：`app://` 协议是把真实文件路径交给 `net.fetch` 处理，保持散文件可以让打包版和开发时行为完全一致，避免 asar 虚拟路径取不到图片。
+- **未做代码签名**：首次运行 Windows SmartScreen 会提示「未知发布者」，点「更多信息 → 仍要运行」即可。要消除提示需自备签名证书。
+- 打包脚本内置 npmmirror 镜像（`scripts/dist.js`），国内网络不会卡在 GitHub 下载。
+
 ## 功能结构
 
 ```
@@ -92,6 +115,8 @@ RAW 的处理策略是「找现成的图」而不是算出来：
 | 标记与偏好 | `%APPDATA%\PicSelect\library.json` |
 | RAW 预览缓存 | `%APPDATA%\PicSelect\cache\raw\<sha1>.jpg`（上限 500MB，自动清理最旧） |
 | 缩略图缓存 | IndexedDB（渲染进程，库名 `picselect`） |
+
+便携版（`PicSelect-*-portable.exe`）把上面三项整体放在 exe 同级的 `PicSelectData\` 下，不再写入 `%APPDATA%`。
 
 `library.json` 采用原子写入（临时文件 + rename，失败指数退避重试）加上 220ms 防抖，程序退出前会强制 `flush()`，不会出现半截文件。删除这个文件即可重置所有标记，照片本身永不被修改。
 
