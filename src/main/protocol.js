@@ -1,6 +1,8 @@
 'use strict'
 
 const fsp = require('node:fs/promises')
+const { createReadStream } = require('node:fs')
+const { Readable } = require('node:stream')
 const path = require('node:path')
 const { pathToFileURL } = require('node:url')
 const { protocol, net } = require('electron')
@@ -64,6 +66,19 @@ async function handleRequest(request) {
     return serveFile(target, mimeOf(extOf(target)))
   }
 
+  // RAW 解码器（libraw-wasm）：ESM 模块 + worker + wasm，都在渲染进程里跑
+  if (pathname.startsWith('/vendor/libraw/')) {
+    const base = path.join(appRoot, 'node_modules', 'libraw-wasm', 'dist')
+    const target = path.resolve(base, pathname.slice('/vendor/libraw/'.length))
+    if (!isInside(base, target)) return new Response('forbidden', { status: 403 })
+    return serveFile(target, mimeOf(extOf(target)), 'private, max-age=86400')
+  }
+
+  // 原始文件字节（RAW 交给渲染进程自带解码器处理，不经过主进程转码）
+  if (pathname.startsWith('/bytes/')) {
+    return serveBytes(pathname.slice('/bytes/'.length))
+  }
+
   if (pathname.startsWith('/media/')) {
     let width = 0
     try {
@@ -73,6 +88,31 @@ async function handleRequest(request) {
   }
 
   return new Response('not found', { status: 404 })
+}
+
+async function serveBytes(key) {
+  let file
+  try {
+    file = path.resolve(decodeMediaKey(key))
+  } catch {
+    return new Response('bad key', { status: 400 })
+  }
+  if (!library.isAllowed(file)) return new Response('forbidden', { status: 403 })
+
+  try {
+    const stat = await fsp.stat(file)
+    const body = Readable.toWeb(createReadStream(file))
+    return new Response(body, {
+      status: 200,
+      headers: {
+        'content-type': 'application/octet-stream',
+        'content-length': String(stat.size),
+        'cache-control': LONG_CACHE
+      }
+    })
+  } catch {
+    return new Response('not found', { status: 404 })
+  }
 }
 
 async function serveMedia(key, requestWidth = 0) {

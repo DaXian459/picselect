@@ -8,7 +8,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const os = require('node:os')
-const { app, protocol, nativeTheme } = require('electron')
+const { app, protocol, net, nativeTheme } = require('electron')
 
 // 与 main.js 保持一致，避免测试数据写到 %APPDATA%\Electron
 app.setName('PicSelect')
@@ -218,9 +218,104 @@ async function main() {
 
   try { fs.rmSync(exportDir, { recursive: true, force: true }) } catch {}
 
+  await testRawPipeline(evalJs)
+
   console.log(`\n结果：${pass} 通过 / ${fail} 失败`)
   process.exitCode = fail ? 1 : 0
   app.quit()
+}
+
+/**
+ * RAW 解码链路。前半段（vendor 资源、原始字节路由）任何环境都能跑；
+ * 后半段需要 raw/ 里有真实样片，没有就跳过——这部分依赖本机素材，不进版本控制。
+ */
+async function testRawPipeline(evalJs) {
+  console.log('\n== RAW 解码 ==')
+
+  const vendor = await net.fetch('app://picselect/vendor/libraw/index.js')
+  check('vendor 路由供出 libraw ESM', vendor.ok, `HTTP ${vendor.status}`)
+
+  const wasm = await net.fetch('app://picselect/vendor/libraw/libraw.wasm')
+  const wasmType = wasm.headers.get('content-type') || ''
+  const wasmBytes = wasm.ok ? (await wasm.arrayBuffer()).byteLength : 0
+  check('wasm 以 application/wasm 供出', wasm.ok && wasmType.includes('application/wasm'), wasmType)
+  check('wasm 体积合理（>1MB）', wasmBytes > 1024 * 1024, `${wasmBytes} bytes`)
+
+  // 越界路径必须被挡住，否则任意文件都能通过 app:// 读出来
+  const escape = await net.fetch('app://picselect/vendor/libraw/../../../package.json')
+  check('vendor 越界路径被拒绝', escape.status === 403 || escape.status === 404, `HTTP ${escape.status}`)
+
+  const rawDir = process.env.PICSELECT_RAW_DIR || path.join(ROOT, 'raw')
+  const samples = fs.existsSync(rawDir)
+    ? fs.readdirSync(rawDir).filter((f) => /\.(arw|cr2|cr3|nef|dng|raf|rw2|orf)$/i.test(f))
+    : []
+  if (!samples.length) {
+    console.log(`  · 跳过真实样片解码（${rawDir} 内没有 RAW，这不是失败）`)
+    return
+  }
+
+  // 先清掉缩略图缓存，保证下面的统计反映的是「这次真的解了图」
+  await evalJs('window.__picselect.clearThumbCache()')
+  await sleep(300)
+  const before = JSON.parse(await evalJs('JSON.stringify(window.__picselect.thumbStats)'))
+
+  await evalJs(`window.__picselect.openDir(${JSON.stringify(rawDir)})`)
+  await sleep(7000)
+
+  const after = JSON.parse(await evalJs('JSON.stringify(window.__picselect.thumbStats)'))
+  const list = JSON.parse(await evalJs(`JSON.stringify(
+    window.__picselect.state.items.filter((it) => window.__picselect.isRaw(it)).map((it) => it.name)
+  )`))
+  const loaded = JSON.parse(await evalJs(
+    `document.querySelectorAll('.tile-thumb.is-loaded').length`
+  ))
+
+  check(`扫描出 ${samples.length} 个 RAW`, list.length === samples.length, JSON.stringify(list))
+  if (!list.length) return
+
+  check('每张 RAW 都走了解码分支', after.misses - before.misses === samples.length,
+    `misses ${before.misses} → ${after.misses}`)
+  check('解码无一失败', after.failed - before.failed === 0, `failed ${before.failed} → ${after.failed}`)
+  check('瓦片全部出图', loaded >= samples.length, `${loaded}/${samples.length}`)
+
+  // 真正解一张：断言尺寸、JPEG 头、耗时
+  const t0 = Date.now()
+  const decoded = JSON.parse(await evalJs(`(async () => {
+    const item = window.__picselect.state.items.find((it) => window.__picselect.isRaw(it))
+    const res = await window.__picselect.developRaw(item, { maxWidth: 2048 })
+    const buf = new Uint8Array(await res.blob.slice(0, 3).arrayBuffer())
+    return JSON.stringify({
+      name: item.name,
+      width: res.width,
+      height: res.height,
+      bytes: res.blob.size,
+      magic: [...buf].map((b) => b.toString(16).padStart(2, '0')).join(''),
+      type: res.blob.type
+    })
+  })()`))
+  const ms = Date.now() - t0
+
+  check('LibRaw 解出传感器像素', decoded.width > 1000 && decoded.height > 1000, JSON.stringify(decoded))
+  check('输出是 JPEG（ffd8ff）', decoded.magic === 'ffd8ff', decoded.magic)
+  check('输出声明 image/jpeg', decoded.type === 'image/jpeg', decoded.type)
+  check('输出体积 > 20KB', decoded.bytes > 20 * 1024, `${decoded.bytes} bytes`)
+  console.log(`    （${decoded.name} → ${decoded.width}×${decoded.height}，${(decoded.bytes / 1024).toFixed(0)}KB，耗时 ${ms}ms）`)
+
+  // 相机内嵌预览是文件里现成的另一张 JPEG：体积、尺寸都应与解码结果不同
+  const embedded = await raw.extractPreview(path.join(rawDir, decoded.name), { prefer: 'best' })
+  const embeddedSize = embedded.buffer.length
+  check('结果是重新解码而非内嵌预览', embeddedSize > 0 && Math.abs(embeddedSize - decoded.bytes) > 4096,
+    `内嵌 ${(embeddedSize / 1024).toFixed(0)}KB vs 解码 ${(decoded.bytes / 1024).toFixed(0)}KB`)
+
+  // 缓存：同一张再解一次应命中 IndexedDB
+  const t1 = Date.now()
+  const cachedUrl = await evalJs(`(async () => {
+    const item = window.__picselect.state.items.find((it) => window.__picselect.isRaw(it))
+    return await window.__picselect.developUrl(item, { maxWidth: 2048 })
+  })()`)
+  const cacheMs = Date.now() - t1
+  check('二次取图返回 blob URL', typeof cachedUrl === 'string' && cachedUrl.startsWith('blob:'), String(cachedUrl))
+  check('缓存命中快于首次解码', cacheMs < ms, `${cacheMs}ms vs 首次 ${ms}ms`)
 }
 
 app.whenReady().then(() => {

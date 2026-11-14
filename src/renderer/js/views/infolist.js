@@ -8,9 +8,13 @@ let renderSeq = 0
 let currentItem = null
 let currentImageSize = null
 let currentExif = null
-const refs = { sub: null, dims: null }
+const refs = { sub: null, dims: null, previewDims: null }
 
 function dimsText() {
+  // RAW 报传感器像素（EXIF SubIFD），解码产物只是预览尺寸，不能拿它冒充原图尺寸
+  if (currentItem && currentItem.kind === 'raw' && currentExif && currentExif.width) {
+    return `${currentExif.width} × ${currentExif.height}`
+  }
   if (currentImageSize && currentImageSize.width) {
     return `${currentImageSize.width} × ${currentImageSize.height}`
   }
@@ -18,6 +22,15 @@ function dimsText() {
     return `${currentExif.width} × ${currentExif.height}`
   }
   return '—'
+}
+
+/** RAW 的解码预览尺寸（与传感器尺寸不同时才值得单列一行） */
+function previewDimsText() {
+  if (!currentItem || currentItem.kind !== 'raw') return null
+  if (!currentImageSize || !currentImageSize.width) return null
+  // 传感器尺寸不明时，「尺寸」那行显示的本来就是预览尺寸，再列一遍只会让人困惑
+  if (!currentExif || !currentExif.width) return null
+  return `${currentImageSize.width} × ${currentImageSize.height}`
 }
 
 function subText(item) {
@@ -178,6 +191,7 @@ function render(item, exifPayload) {
   bodyEl.replaceChildren()
   refs.sub = null
   refs.dims = null
+  refs.previewDims = null
 
   // 头部
   const head = section()
@@ -207,11 +221,18 @@ function render(item, exifPayload) {
     fileBox.appendChild(dimsRow)
     refs.dims = dimsRow.querySelector('dd')
   }
+  if (item.kind === 'raw') {
+    const previewRow = row('解码预览', previewDimsText() || '—')
+    if (previewRow) {
+      fileBox.appendChild(previewRow)
+      refs.previewDims = previewRow.querySelector('dd')
+    }
+  }
   fileBox.appendChild(rowsEl([
     ['体积', formatBytes(item.size)],
     ['修改时间', formatDate(item.mtimeMs)],
     ['格式', item.ext.replace('.', '').toUpperCase()],
-    ...(item.kind === 'raw' ? [['预览来源', 'RAW 内嵌 JPEG 预览']] : []),
+    ...(item.kind === 'raw' ? [['预览来源', 'RAW 传感器数据解码（LibRaw）']] : []),
     ...(item.kind === 'tiff' ? [['预览来源', '主进程 TIFF 解码']] : [])
   ]))
   bodyEl.appendChild(fileBox)
@@ -261,6 +282,7 @@ export function updateInfoSize(width, height) {
   currentImageSize = { width, height }
   if (refs.sub) refs.sub.textContent = subText(currentItem)
   if (refs.dims) refs.dims.textContent = dimsText()
+  if (refs.previewDims) refs.previewDims.textContent = previewDimsText() || '—'
 }
 
 export async function renderInfo(item, imageSize) {
@@ -272,6 +294,7 @@ export async function renderInfo(item, imageSize) {
     bodyEl.replaceChildren()
     refs.sub = null
     refs.dims = null
+    refs.previewDims = null
     return
   }
 

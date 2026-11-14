@@ -1,10 +1,14 @@
 import { state, metaOf } from '../state.js'
 import { preloadAround } from '../preloader.js'
 import { clamp, zoomLabel } from '../lib/format.js'
+import { developUrl, isRaw } from '../raw-develop.js'
+import { peekThumbnail } from '../thumb-service.js'
 
 const MIN_SCALE = 0.15
 const MAX_SCALE = 12
 const IDLE_DELAY = 2600
+// RAW 大图解码目标宽度：2048 足够铺满 4K 窗口的适应视图，再大只是徒增解码时间
+const DEVELOP_WIDTH = 2048
 
 let pane = null
 let stage = null
@@ -114,7 +118,6 @@ export function show(index) {
   const other = activeLayer
   const token = ++seq
 
-  target.src = item.url
   const reveal = () => {
     if (token !== seq) return
     target.classList.add('is-visible')
@@ -128,13 +131,39 @@ export function show(index) {
     }
   }
 
-  target.decode()
-    .then(reveal)
-    .catch(() => {
-      if (token !== seq) return
-      reveal()
-      handlers.onError?.(item)
-    })
+  if (isRaw(item)) {
+    // RAW：先生成/取用解码结果，期间用已缓存的缩略图垫着，避免一直显示上一张
+    const quick = peekThumbnail(item)
+    if (quick) {
+      target.src = quick
+      target.decode().catch(() => {})
+    }
+    developUrl(item, { maxWidth: DEVELOP_WIDTH })
+      .then((url) => {
+        if (token !== seq) return null
+        target.src = url
+        return target.decode()
+      })
+      .then(() => reveal())
+      .catch(() => {
+        if (token !== seq) return
+        // 解不出来（极端格式）就退回主进程提取的预览
+        target.src = item.url
+        target.decode().then(reveal).catch(() => {
+          reveal()
+          handlers.onError?.(item)
+        })
+      })
+  } else {
+    target.src = item.url
+    target.decode()
+      .then(reveal)
+      .catch(() => {
+        if (token !== seq) return
+        reveal()
+        handlers.onError?.(item)
+      })
+  }
 
   preloadAround(state.filtered, index, 2)
   handlers.onShow?.(item, index)}

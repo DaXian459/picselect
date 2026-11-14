@@ -86,6 +86,38 @@ async function main() {
     `).catch(() => {})
   }
 
+  // --no-info / --info：强制信息面板的开关状态（默认沿用上次偏好）
+  if (hasFlag('no-info') || hasFlag('info')) {
+    await sleep(600)
+    await win.webContents.executeJavaScript(`
+      (() => {
+        const want = ${hasFlag('info')};
+        const open = Boolean(window.__picselect.state.infoOpen);
+        const btn = document.getElementById('btnInfo');
+        if (btn && open !== want) btn.click();
+        return true;
+      })()
+    `).catch(() => {})
+  }
+
+  // --tile <px>：把缩略图档位调到指定值（用界面上的按钮点，走真实交互路径）
+  if (argv.includes('--tile')) {
+    const want = Number(argOf('tile', '168'))
+    await sleep(800)
+    await win.webContents.executeJavaScript(`
+      (() => {
+        const btn = document.getElementById('btnThumbSize')
+        const steps = [132, 168, 208, 256, 300]
+        const target = steps.filter((s) => s <= ${want}).pop() || steps[0]
+        for (let i = 0; i < steps.length + 1; i++) {
+          if (window.__picselect.state.thumbSize === target) break
+          btn.click()
+        }
+        return window.__picselect.state.thumbSize
+      })()
+    `).then((v) => console.log('tile size:', v)).catch(() => {})
+  }
+
   await sleep(delay)
 
   const probe = await win.webContents.executeJavaScript(`

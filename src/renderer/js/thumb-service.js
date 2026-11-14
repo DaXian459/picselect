@@ -1,4 +1,5 @@
 import { idbGet, idbPut } from './idb.js'
+import { developRaw, isRaw } from './raw-develop.js'
 
 const THUMB_WIDTH = 440
 const MAX_CONCURRENT = 4
@@ -54,10 +55,26 @@ async function makeThumbnail(blob, ext) {
   }
 }
 
-/** 缩略图请求 URL：带宽度提示，让主进程为 RAW 选中等分辨率预览 */
+/**
+ * RAW 缩略图：先走 LibRaw 解码传感器数据；
+ * LibRaw 不认的机型、损坏文件、非标准 RAW 容器则回退主进程提取的内嵌预览。
+ */
+async function developOrPreview(item, key) {
+  try {
+    const res = await developRaw(item, { maxWidth: THUMB_WIDTH * 2, quality: 0.82 })
+    return res.blob
+  } catch {
+    const res = await fetch(key)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return makeThumbnail(await res.blob(), item.ext)
+  }
+}
+
+/** 缩略图请求 URL：带宽度提示；RAW 额外带解码版本号，让旧的「内嵌 JPEG 预览」缓存失效 */
 function thumbUrl(item) {
   const sep = item.url.includes('?') ? '&' : '?'
-  return `${item.url}${sep}w=${THUMB_WIDTH}`
+  const tag = isRaw(item) ? '&src=develop1' : ''
+  return `${item.url}${sep}w=${THUMB_WIDTH}${tag}`
 }
 
 /**
@@ -84,6 +101,11 @@ export function getThumbnail(item) {
       let blob = await idbGet(key)
       if (blob) {
         stats.hits++
+      } else if (isRaw(item)) {
+        // RAW：优先自己解传感器数据；LibRaw 不认识的机型/损坏文件回退内嵌预览
+        blob = await developOrPreview(item, key)
+        stats.misses++
+        idbPut(key, blob)
       } else {
         const res = await fetch(key)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -109,6 +131,11 @@ export function getThumbnail(item) {
 
 export function isThumbCached(item) {
   return urlCache.has(thumbUrl(item))
+}
+
+/** 同步取已缓存的缩略图 URL（没有就返回 null），查看器用来先垫一张低清图 */
+export function peekThumbnail(item) {
+  return urlCache.get(thumbUrl(item)) || null
 }
 
 export function resetThumbCache() {

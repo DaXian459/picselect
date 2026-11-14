@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; connect-src 'self'; font-src 'self'; media-src 'self' blob:">
+        content="default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self'; font-src 'self'; media-src 'self' blob:">
   <title>PicSelect</title>
   <link rel="stylesheet" href="app://picselect/renderer/styles/theme.css">
   <link rel="stylesheet" href="app://picselect/renderer/styles/base.css">

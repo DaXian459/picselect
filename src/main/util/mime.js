@@ -15,7 +15,9 @@ const MIME = {
   '.bmp': 'image/bmp',
   '.avif': 'image/avif',
   '.ico': 'image/x-icon',
-  '.woff2': 'font/woff2'
+  '.woff2': 'font/woff2',
+  '.wasm': 'application/wasm',
+  '.map': 'application/json; charset=utf-8'
 }
 
 function mimeOf(ext) {

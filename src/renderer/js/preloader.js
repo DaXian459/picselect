@@ -45,7 +45,8 @@ export function preloadAround(list, index, radius = 2) {
   for (let offset = 1; offset <= radius; offset++) {
     for (const i of [index + offset, index - offset]) {
       const item = list[i]
-      if (item) preload(item.url)
+      // RAW 的解码结果由 raw-develop 自己缓存，preload 它的媒体 URL 只会白拉一次 JPEG 预览
+      if (item && item.kind !== 'raw') preload(item.url)
     }
   }
 }

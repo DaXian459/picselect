@@ -8,6 +8,7 @@ import { initKeys } from './keys.js'
 import { requestPersistence, idbClear, idbCount } from './idb.js'
 import { clearPreload } from './preloader.js'
 import { stats as thumbStats } from './thumb-service.js'
+import { developRaw, developUrl, isRaw, resetDevelopCache } from './raw-develop.js'
 
 const THUMB_STEPS = [132, 168, 208, 256, 300]
 const THEME_CYCLE = ['system', 'light', 'dark']
@@ -732,6 +733,12 @@ window.__picselect = {
   state,
   grid,
   viewer,
+  developRaw,
+  developUrl,
+  isRaw,
+  resetDevelopCache,
+  openDir: (dir) => loadDir(dir),
+  thumbStats,
   clearThumbCache: async () => {
     await idbClear()
     clearPreload()
